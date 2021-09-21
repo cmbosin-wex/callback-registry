@@ -104,16 +104,17 @@ int UnregisterCallback(CALLBACK_FUNC callback) {
   }
 
   struct CALLBACK_NODE *node;
+  struct CALLBACK_NODE *stack = GetStack();
   struct CALLBACK_NODE *prev = NULL;
   int status = CALLBACK_FAILURE;
 
-  if (!node) {
+  if (!stack) {
     /* Stack empty. Return failure */
     UnlockStack();
     return CALLBACK_FAILURE;
   }
 
-  FOREACH_NODE(node, GetStack()) {
+  FOREACH_NODE(node, stack) {
     if (node->callback == callback) {
       if (prev != NULL) {
         prev->next = node->next;
@@ -123,6 +124,7 @@ int UnregisterCallback(CALLBACK_FUNC callback) {
       free(node);
       node = NULL;
       status = CALLBACK_SUCCESS;
+      break;
     }
     prev = node;
   }

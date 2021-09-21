@@ -1,4 +1,4 @@
-CFLAGS = 
+CFLAGS = -g
 
 .SUFFIXES:  
 .SUFFIXES:     .c .o
@@ -6,7 +6,7 @@ CFLAGS =
 all: test_callbacks
 
 test_callbacks: test_callbacks.c callbacks.o
-	gcc $< -o test_callbacks callbacks.o
+	gcc $(CFLAGS)  $< -o test_callbacks callbacks.o
 
 .c.o: .c
 	gcc $(CFLAGS) -c $< 

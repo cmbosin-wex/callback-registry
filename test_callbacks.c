@@ -144,6 +144,31 @@ UNITTEST_TEST(CantRegisterCallbackWithinCallback) {
     ReleaseCallbacks();
 }
 
+UNITTEST_TEST(CanUnregisterCallback) {
+  RegisterCallback(func1, "func1", NULL);
+  RegisterCallback(func2, "func2", NULL);
+
+  UNITTEST_ASSERT(CALLBACK_SUCCESS == UnregisterCallback(func1));
+  
+  ReleaseCallbacks();
+}
+
+UNITTEST_TEST(UnregisteredCallbacksArentExecuted) {
+  RegisterCallback(func1, "func1", NULL);
+  RegisterCallback(func2, "func2", NULL);
+
+  _CALLBACK_COUNT(func1) = 0;
+  _CALLBACK_COUNT(func2) = 0;
+
+  UnregisterCallback(func1);
+  ExecuteCallbacks(NULL);
+
+  UNITTEST_ASSERT(_CALLBACK_COUNT(func1) == 0);
+  UNITTEST_ASSERT(_CALLBACK_COUNT(func2) == 1);
+  
+  ReleaseCallbacks();
+}
+
 UNITTEST_TESTS = {
     UNITTEST_DECLARE(CanRegisterCallback),
     UNITTEST_DECLARE(CanRegisterSameCallbackMultipleTimes),
@@ -155,4 +180,6 @@ UNITTEST_TESTS = {
     UNITTEST_DECLARE(CallbackReturningZeroOrNegativeCountAsFailed),
     UNITTEST_DECLARE(CallbackReceiveCorrectState),
     UNITTEST_DECLARE(CantRegisterCallbackWithinCallback),
+    UNITTEST_DECLARE(CanUnregisterCallback),
+    UNITTEST_DECLARE(UnregisteredCallbacksArentExecuted),
 };
