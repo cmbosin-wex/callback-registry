@@ -5,12 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
+#include <setjmp.h>
 
 typedef struct {
   const char *name;
   void (*test)(void);
   int failed_assertions;
   int failed_checks;
+  char status;
   void *state;
 } unittest_test_t;
 
@@ -54,13 +57,13 @@ static int UnittestRun(unittest_test_t tests[]);
 #define UNITTEST_TESTS unittest_test_t test_list[]
 
 #define UNITTEST_DECLARE(x) \
-  { #x, x, 0, 0, NULL }
+  { #x, x, 0, 0, 0, NULL }
 
 #define UNITTEST_DECLARE_TEST_CASE(suite, test) \
-  { #suite "::" #test, UnitTestWrapper__##suite##test, 0, 0, NULL }
+  { #suite "::" #test, UnitTestWrapper__##suite##test, 0, 0, 0, NULL }
 
 #define UNITTEST_END \
-  { NULL, NULL, 0, 0, NULL }
+  { NULL, NULL, 0, 0, 0, NULL }
 
 #if !defined(UNITTEST_DONT_USE_DEFAULT_MAIN)
 extern unittest_test_t test_list[];
@@ -72,46 +75,107 @@ int main(int argc, char const *argv[]) {
 
 static int failed_assertions;
 static int failed_checks;
+static int test_aborted;
 static int total_assertions;
 static int total_checks;
 static int verbosity = 1;
+static int quiet = 0;
+jmp_buf jmp_env;
 static unittest_test_t *current_test;
 
+static char *AppendString(char *a, const char *b);
+
 void ResetState() {
+  test_aborted = 0;
   failed_assertions = 0;
   failed_checks = 0;
   current_test = NULL;
 }
 
-static void UnittestInit(int argc, char const *argv[]) {}
+void SigHandler(int signum) {
+  char buf[1024];
+  int sz = 0;
+  if (current_test) {
+    sz += sprintf(buf + sz, "Error: ");
+    switch (signum)
+    {
+    case SIGABRT:
+      sz += sprintf(buf + sz, "SIGABRT raised");
+      break;
+    case SIGFPE:
+      sz += sprintf(buf + sz, "SIGFPE raised");
+      break;
+    case SIGSEGV:
+      sz += sprintf(buf + sz, "SIGSEGV raised");
+      break;
+    default:
+      sz += sprintf(buf + sz, "General failure: signum [%d]", signum);
+      break;
+    }
+    current_test->state = AppendString((char *)current_test->state, buf);
+  }
+  longjmp(jmp_env, -1);
+}
+
+static void UnittestInit(int argc, char const *argv[]) {
+  // Register handlers 
+  signal(SIGABRT, SigHandler); 
+  signal(SIGFPE, SigHandler); 
+  signal(SIGSEGV, SigHandler); 
+}
 
 static void ShowTestInfoShort(const unittest_test_t *test) {
   static const char padding[] =
-      ".....................................................................";
+      ".....................................................................";  
   int pad_length = sizeof(padding) - strlen(test->name);
   if (pad_length < 0) pad_length = 0;
-  fprintf(stderr, "%s %*.*s", test->name, pad_length, pad_length, padding);
-  if (test->failed_assertions > 0 || test->failed_checks > 0) {
-    fprintf(stderr, " FAILED\n");
-  } else {
-    fprintf(stderr, " OK\n");
+  if (verbosity == 0) {
+      fprintf(stderr, "%c", test->status);
+  } else if (verbosity > 0) {
+      fprintf(stderr, "%s %*.*s", test->name, pad_length, pad_length, padding);
+      switch (test->status)
+      {
+      case 'F':
+        fprintf(stderr, " FAILED\n");
+        break;
+      case 'E':
+        fprintf(stderr, " ERROR\n");
+        break;
+      case '.':
+        fprintf(stderr, " OK\n");
+        break;
+      
+      default:
+        fprintf(stderr, " ?????\n");
+        break;
+      }
   }
 }
 
 static int RunTest(unittest_test_t *test) {
   ResetState();
   current_test = test;
-  test->test();
+  if (setjmp(jmp_env) == 0) {
+    test->test();
+    if (failed_assertions > 0 || failed_checks > 0)
+      test->status = 'F';
+    else
+      test->status = '.';
+  } else {
+    test->status = 'E';
+  }
   test->failed_assertions = failed_assertions;
   test->failed_checks = failed_checks;
-  if (verbosity > 0) ShowTestInfoShort(test);
-  return failed_assertions > 0 || failed_checks > 0;
+  
+  if (!quiet) ShowTestInfoShort(test);
+  return test->status != '.';
 }
 
 static int UnittestRun(unittest_test_t tests[]) {
   int i;
   int count = 0;
   int failed = 0;
+  int first = 1;
   int _failed_assertions = 0;
   int _failed_checks = 0;
   unittest_test_t *test = tests;
@@ -121,21 +185,23 @@ static int UnittestRun(unittest_test_t tests[]) {
     _failed_checks += failed_checks;
     count++;
   }
+  fprintf(stderr, "\n");
   test = tests;
   while (test->test != NULL) {
-    if (test->failed_assertions > 0 || test->failed_checks > 0) {
-      fprintf(stderr,
-              "----------------------------------------------------------------"
-              "-------\n");
+    if (test->status != '.') {
+      if (first) {
+        fprintf(stderr,
+                "-----------------------------------------------------------------------\n");
+        first = 0;
+      }
       fprintf(stderr, "Test `%s` FAILED\n", test->name);
       fprintf(stderr, "%s\n", (const char *)test->state);
+      fprintf(stderr,
+              "-----------------------------------------------------------------------\n");
     }
     free(test->state);
     test++;
   }
-  fprintf(stderr,
-          "--------------------------------------------------------------------"
-          "---\n");
   fprintf(stderr, "Executed %d tests, %d failed\n", count, failed);
   if (failed > 0) {
     fprintf(stderr, "Failed assertions: %d\n", _failed_assertions);
