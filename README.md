@@ -9,17 +9,19 @@ make test
 The expected output
 
 ```
-CanRegisterCallback ................................................... OK
-CanRegisterSameCallbackMultipleTimes .................................. OK
-CanRegisterMultipleCallbacks .......................................... OK
-CanExecuteCallback .................................................... OK
-CanExecuteCallbackOnlyOnce ............................................ OK
-CanExecuteCallbackLastInFirstOut ...................................... OK
-CanRegisterCallbackWithCustomId ....................................... OK
-CallbackReturningZeroOrNegativeCountAsFailed .......................... OK
-CallbackReceiveCorrectState ........................................... OK
-CantRegisterCallbackWithinCallback .................................... OK
+CallbackSuite::CanRegisterCallback .................................... OK
+CallbackSuite::CanRegisterSameCallbackMultipleTimes ................... OK
+CallbackSuite::CanRegisterMultipleCallbacks ........................... OK
+CallbackSuite::CanExecuteCallback ..................................... OK
+CallbackSuite::CanExecuteCallbackOnlyOnce ............................. OK
+CallbackSuite::CanExecuteCallbackLastInFirstOut ....................... OK
+CallbackSuite::CanRegisterCallbackWithCustomId ........................ OK
+CallbackSuite::CallbackReturningZeroOrNegativeCountAsFailed ........... OK
+CallbackSuite::CallbackReceiveCorrectState ............................ OK
+CallbackSuite::CantRegisterCallbackWithinCallback ..................... OK
+CallbackSuite::CanUnregisterCallback .................................. OK
+CallbackSuite::UnregisteredCallbacksArentExecuted ..................... OK
 -----------------------------------------------------------------------
-Executed 10 tests, 0 failed
+Executed 12 tests, 0 failed
 ```
 
